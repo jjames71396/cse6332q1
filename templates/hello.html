@@ -1,0 +1,23 @@
+<!doctype html>
+<head>
+    <title>Hello Azure - Python Quickstart</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap/css/bootstrap.min.css') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+</head>
+<html>
+   <body>
+     <main>
+        <div class="px-4 py-3 my-2 text-center">
+            <img class="d-block mx-auto mb-4" src="{{ fname }}" alt="No Image" width="192" height="192"/>
+            <!-- <img  src="/docs/5.1/assets/brand/bootstrap-logo.svg" alt="" width="72" height="57"> -->
+			{% for item in ims %}
+				<li><img src="{{item}}" width="500" height="600"></li>
+			{% endfor %}
+			{% for item in name %}
+				<li><h1 class="display-6 fw-bold"> {{item}}</h1></li>
+			{% endfor %}
+            <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg px-4 gap-3">Back home</a>
+          </div>
+     </main>      
+   </body>
+</html>
