@@ -20,10 +20,32 @@ blob_service_client = BlobServiceClient(account_url, credential=default_credenti
 container_name = "store"
 
 # Create a local directory to hold blob data
-local_path = "static/assignment1"
-download_file_path = os.path.join(local_path, "people.csv")
+path = "static/assignment1"
+download_file_path = os.path.join(path, "q1c.csv")
 container_client = blob_service_client.get_container_client(container= container_name) 
+blob_list = container_client.list_blobs()
+
+found = False
+for blob in blob_list:
+    if path == blob.name:
+        found = True
+if found:
+    with open(file=download_file_path, mode="wb") as download_file:
+        download_file.write(container_client.download_blob(path).readall())
+        
 df = pd.read_csv(download_file_path)
+
+download_file_path = os.path.join(path, "md.jpg")
+container_client = blob_service_client.get_container_client(container= container_name) 
+blob_list = container_client.list_blobs()
+found = False
+for blob in blob_list:
+    if path == blob.name:
+        found = True
+if found:
+    with open(file=download_file_path, mode="wb") as download_file:
+        download_file.write(container_client.download_blob(path).readall())
+
 
 @app.route('/')
 def index():
@@ -41,12 +63,13 @@ def delete():
     name = request.form.get('name')
     found = False
     idx = None
-    for i,n in enumerate(df["Name"]):
+    print(name)
+    for i,n in enumerate(df["name"]):
         if n == name:
            idx = i
            found = True
     if found:
-        df = df.drop(df.index[idx])
+        df.loc[idx] = ['','','','','']
         return render_template('delete.html', name = name+" deleted")
     else:
         return render_template('delete.html', name = name+" not in db")
@@ -56,22 +79,25 @@ def update():
     inp = request.form.get('name')
     args = inp.split(',')
     download_file_path = None
-    if len(args) < 8 or len(df.keys()) != len(args):
+    if len(args) < 5 or len(df.keys()) != len(args):
         print('Request for hello page received with no name or blank name -- redirecting')
         return redirect(url_for('index'))
-    elif args[6][-4:] != ".jpg":
+    elif args[3][-4:] != ".jpg":
         print('Request for hello page received with no name or blank name -- redirecting')
         return redirect(url_for('index'))
     else:
         found = False
-        for i,n in enumerate(df["Name"]):
+        for i,n in enumerate(df["name"]):
             if n == args[0]:
-               im = df["Picture"][i]
+               if args[1] != '':
+                args[1] = float(args[1])
                df.loc[i] = args
                found = True
         if found:
             return render_template('update.html', name = args[0]+" updated")
         else:
+            if args[1] != '':
+                args[1] = float(args[1])
             df.loc[len(df.index)] = args
             return render_template('update.html', name = args[0]+" added")
 
@@ -84,18 +110,72 @@ def range():
     im = None
     download_file_path = None
     ims = []
-    if args[0] not in df.keys():
-       return redirect(url_for('index'))
-    for i,n in enumerate(df[args[0]]):
-        if type(n) is str and n[0] != '-' and n != ' ':
-            print(n)
-            if int(n) >= int(args[1]) and int(n) <= int(args[2]):
-               im = df["Picture"][i]
-               ims.append(im)
+    seat = "all"
+    v = []
+    if args[0].isalpha():
+        seat = args[0]
+        for i,n in enumerate(df["seat"]):
+            if str(n) == seat:
+                im = str(df["pic"][i])
+                print(im)
+                ims.append(im)
+                for j in df.loc[i]:
+                 v.append(j)
+    else:
+        if len(args) < 3:
+            seat = "all"
+        else:
+            seat = args[2]
+        for i,n in enumerate(df["row"]):
+            if type(n) is not str:
+                if float(n) >= float(args[0]) and float(n) <= float(args[1]):
+                   if seat == "all" or seat == df["seat"][i]:
+                       im = str(df["pic"][i])
+                       print(im)
+                       ims.append(im)
+                       for j in df.loc[i]:
+                        v.append(j)
     imms = []
     for im in ims:
         if im is not None:
-            download_file_path = os.path.join(local_path, im)
+            download_file_path = os.path.join(path, im)
+            container_client = blob_service_client.get_container_client(container= container_name) 
+            blob_list = container_client.list_blobs()
+            found = False
+            for blob in blob_list:
+                if im == blob.name:
+                    found = True
+            print(im)
+            if found:
+                with open(file=download_file_path, mode="wb") as download_file:
+                    download_file.write(container_client.download_blob(im).readall())
+                    imms.append(download_file_path)
+    
+    
+    return render_template('range.html', ims = imms, v = v)
+
+
+@app.route('/hello', methods=['POST'])
+def hello():
+    found = False
+    name = request.form.get('name')
+    print(name)
+    container_name = "store"
+    im = None
+    download_file_path = None
+    v = []
+    ims = []
+    for i,n in enumerate(df["row"]):
+        if type(n) is not str and n >= 0:
+            if n == float(name):
+               im = df["pic"][i]
+               ims.append(im)
+               for j in df.loc[i]:
+                v.append(j)
+    imms = []
+    for im in ims:
+        if im is not None:
+            download_file_path = os.path.join(path, im)
             container_client = blob_service_client.get_container_client(container= container_name) 
             blob_list = container_client.list_blobs()
             found = False
@@ -108,43 +188,9 @@ def range():
                     download_file.write(container_client.download_blob(im).readall())
                 imms.append(download_file_path)
     
-    
-    return render_template('range.html', ims = imms)
-
-
-@app.route('/hello', methods=['POST'])
-def hello():
-    found = False
-    name = request.form.get('name')
-    print(name)
-    container_name = "store"
-    im = None
-    download_file_path = None
-    v = None
-    for i,n in enumerate(df["Name"]):
-        if n == name:
-           im = df["Picture"][i]
-           v = df.loc[i]
-    if im is not None:
-        local_file_name = im
-        # Create a blob client using the local file name as the name for the blob
-        #blob_client = blob_service_client.get_blob_client(container=container_name, blob=local_file_name)
-        
-        download_file_path = os.path.join(local_path, local_file_name)
-        container_client = blob_service_client.get_container_client(container= container_name) 
-        blob_list = container_client.list_blobs()
-        for blob in blob_list:
-            if local_file_name == blob.name:
-                found = True
-                break
-        
-        if found:
-            with open(file=download_file_path, mode="wb") as download_file:
-                download_file.write(container_client.download_blob(local_file_name).readall())
-    
     if v is not None:
        print('Request for hello page received with name=%s' % name)
-       return render_template('hello.html', name = v, fname=download_file_path)
+       return render_template('hello.html', name = v, ims=imms)
     else:
        print('Request for hello page received with no name or blank name -- redirecting')
        return redirect(url_for('index'))
